@@ -2,39 +2,36 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import { adminAuth } from "./middlewares/adminAuth.js";
-import { userAuth } from "./userAuth.js";
+import { connectDB } from "./lib/database.js";
+import { User } from "./models/User.js";
 
 const app = express();
 
-app.use(express.json());
+app.post("/signup", async (req, res) => {
+  try {
+    const user = new User({
+      firstName: "Saurabh",
+      lastName: "Sharma",
+      emailId: "saurabh@111",
+      password: "123",
+      age: 24,
+    });
 
-app.use("/admin", adminAuth);
-
-app.get("/admin/getAllData", (req, res) => {
-  res.send("All data fetched");
+    await user.save();
+    res.status(200).send("User added to DB.");
+  } catch (error) {
+    res.status(400).send("Failed to add user to DB.");
+  }
 });
 
-app.delete("/admin/deleteAllData", (req, res) => {
-  res.send("All data erased");
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    app.listen(3000, () => console.log("Server is listening on 3000"));
+  } catch (error) {
+    console.error("Server is failed to start due to DB failure");
+    process.exit(1);
+  }
+};
 
-app.get(
-  "/user",
-  userAuth,
-  (req, res, next) => {
-    throw new Error("Error inside /user route");
-    console.log("auth middleware, ", Math.random() * 1000 + 1);
-    next();
-  },
-  (req, res) => {
-    console.log("signed in successfully");
-    res.send(`Token: ${Math.random() * 1000 + 1}`);
-  },
-);
-
-app.use("/", (err, req, res, next) => {
-  res.status(500).send("some internal error has occured");
-});
-
-app.listen(3000, () => console.log("Listening on 3000"));
+startServer();
