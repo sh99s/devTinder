@@ -21,7 +21,7 @@ const userSchema = mongoose.Schema(
       type: String,
     },
   },
-  { timeStamps: true },
+  { timestamps: true },
 );
 
 export const User = mongoose.model("User", userSchema);
