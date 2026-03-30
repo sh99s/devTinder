@@ -1,27 +1,40 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
+import { adminAuth } from "./middlewares/adminAuth.js";
+import { userAuth } from "./userAuth.js";
 
 const app = express();
 
-app.get("/user/:id", (req, res) => {
-  const { id } = req.params;
-  const { age, name } = req.query;
-  res.send({
-    name,
-    age,
-    id,
-  });
+app.use(express.json());
+
+app.use("/admin", adminAuth);
+
+app.get("/admin/getAllData", (req, res) => {
+  res.send("All data fetched");
 });
 
-app.post("/user", (req, res) => {
-  res.send("user added successfully");
+app.delete("/admin/deleteAllData", (req, res) => {
+  res.send("All data erased");
 });
 
-app.delete("/user", (req, res) => {
-  res.send("user deleted successfully");
-});
+app.get(
+  "/user",
+  userAuth,
+  (req, res, next) => {
+    throw new Error("Error inside /user route");
+    console.log("auth middleware, ", Math.random() * 1000 + 1);
+    next();
+  },
+  (req, res) => {
+    console.log("signed in successfully");
+    res.send(`Token: ${Math.random() * 1000 + 1}`);
+  },
+);
 
-app.use("/", (req, res) => {
-  res.send("Hi from server");
+app.use("/", (err, req, res, next) => {
+  res.status(500).send("some internal error has occured");
 });
 
 app.listen(3000, () => console.log("Listening on 3000"));
