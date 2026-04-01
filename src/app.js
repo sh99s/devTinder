@@ -66,6 +66,17 @@ app.delete("/delete", async (req, res) => {
   }
 });
 
+app.patch("/user", async (req, res) => {
+  try {
+    const id = req.body.id;
+    const data = req.body;
+    const updatedUser = await User.findByIdAndUpdate(id, data);
+    res.status(200).send("user upadated successfully.");
+  } catch (error) {
+    res.status(400).send("unable to update the user.");
+  }
+});
+
 const startServer = async () => {
   try {
     await connectDB();
