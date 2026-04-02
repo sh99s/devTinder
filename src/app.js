@@ -1,6 +1,5 @@
 import dotenv from "dotenv";
 dotenv.config();
-// resume lecture 21 from 47.21 mins
 import express from "express";
 import { connectDB } from "./lib/database.js";
 import { User } from "./models/User.js";
@@ -10,7 +9,8 @@ app.use(express.json());
 
 app.post("/signup", async (req, res) => {
   try {
-    const { firstName, lastName, age, gender, emailId, password } = req.body;
+    const { firstName, lastName, age, gender, emailId, password, skills } =
+      req.body;
 
     const user = new User({
       firstName,
@@ -19,12 +19,13 @@ app.post("/signup", async (req, res) => {
       gender,
       emailId,
       password,
+      skills,
     });
 
     await user.save();
     res.status(200).send("User added to DB.");
   } catch (error) {
-    res.status(400).send("Failed to add user to DB.");
+    res.status(400).send(error.message);
   }
 });
 
@@ -62,18 +63,31 @@ app.delete("/delete", async (req, res) => {
       res.status(200).send("user deleted successfully");
     }
   } catch (error) {
-    res.status(404).send("user not found.");
+    res.status(404).send(error.message);
   }
 });
 
-app.patch("/user", async (req, res) => {
+app.patch("/user/:id", async (req, res) => {
   try {
-    const id = req.body.id;
+    const id = req.params?.id;
     const data = req.body;
-    const updatedUser = await User.findByIdAndUpdate(id, data);
+
+    const allowedUpdates = ["password", "imgUrl", "gender", "skills", "about"];
+    const isAllowedUpdates = Object.keys(data).every((k) =>
+      allowedUpdates.includes(k),
+    );
+    if (!isAllowedUpdates)
+      throw new Error("This field is not allowed to update");
+
+    if (data?.skills.length > 10)
+      throw new Error(`Can't add more than 10 skills.`);
+    const updatedUser = await User.findByIdAndUpdate(id, data, {
+      runValidators: true,
+      returnDocument: "after",
+    });
     res.status(200).send("user upadated successfully.");
   } catch (error) {
-    res.status(400).send("unable to update the user.");
+    res.status(400).send("unable to update the user: " + error.message);
   }
 });
 
@@ -82,7 +96,9 @@ const startServer = async () => {
     await connectDB();
     app.listen(3000, () => console.log("Server is listening on 3000"));
   } catch (error) {
-    console.error("Server is failed to start due to DB failure");
+    console.error(
+      "Server is failed to start due to DB failure: " + error.message,
+    );
     process.exit(1);
   }
 };
