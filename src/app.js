@@ -3,6 +3,8 @@ dotenv.config();
 import express from "express";
 import { connectDB } from "./lib/database.js";
 import { User } from "./models/User.js";
+import { signUpvalidation } from "./utils/validation.js";
+import bcrypt from "bcrypt";
 
 const app = express();
 app.use(express.json());
@@ -12,13 +14,22 @@ app.post("/signup", async (req, res) => {
     const { firstName, lastName, age, gender, emailId, password, skills } =
       req.body;
 
+    // data validation
+    signUpvalidation(req);
+
+    // encryption of password
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // saving data into DB
+
     const user = new User({
       firstName,
       lastName,
       age,
       gender,
       emailId,
-      password,
+      password: hashedPassword,
       skills,
     });
 
@@ -26,6 +37,28 @@ app.post("/signup", async (req, res) => {
     res.status(200).send("User added to DB.");
   } catch (error) {
     res.status(400).send(error.message);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+
+    const user = await User.findOne({ emailId: emailId });
+
+    if (!user) {
+      throw new Error("invalid credentials.");
+    } else {
+      const checkPassword = await bcrypt.compare(password, user.password);
+
+      if (!checkPassword) {
+        throw new Error("Invalid credentials");
+      } else {
+        res.status(200).send("Login Successful.");
+      }
+    }
+  } catch (error) {
+    res.status(400).send("Error: " + error.message);
   }
 });
 
