@@ -5,9 +5,13 @@ import { connectDB } from "./lib/database.js";
 import { User } from "./models/User.js";
 import { signUpvalidation } from "./utils/validation.js";
 import bcrypt from "bcrypt";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { userAuth } from "./middlewares/userAuth.js";
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 app.post("/signup", async (req, res) => {
   try {
@@ -48,79 +52,43 @@ app.post("/login", async (req, res) => {
 
     if (!user) {
       throw new Error("invalid credentials.");
-    } else {
-      const checkPassword = await bcrypt.compare(password, user.password);
-
-      if (!checkPassword) {
-        throw new Error("Invalid credentials");
-      } else {
-        res.status(200).send("Login Successful.");
-      }
     }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new Error("Invalid credentials");
+    }
+
+    // create jwt token
+    const token = await jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+    // attach jwt token to cookie and send the cookie to client
+    res.cookie("token", token);
+    res.status(200).send("Login Successful.");
   } catch (error) {
     res.status(400).send("Error: " + error.message);
   }
 });
 
-app.get("/user", async (req, res) => {
+app.get("/profile", userAuth, async (req, res) => {
   try {
-    const email = req.body.emailId;
-    const user = await User.find({ emailId: email });
-
-    if (!user) {
-      res.status(404).send("user not found");
-    } else {
-      res.status(200).send(user);
-    }
-  } catch (err) {
-    res.status(401).send("error while getting the user");
+    const user = req.user;
+    res.status(200).send(user);
+  } catch (error) {
+    res.status(400).send("Error: " + error.message);
   }
 });
 
-app.get("/feed", async (req, res) => {
+app.get("/sendconnectionrequest", userAuth, (req, res) => {
   try {
-    const users = await User.find({});
-    res.status(200).send(users);
+    res
+      .status(200)
+      .send(`${req.user.firstName} has sent you the connection request.`);
   } catch (error) {
-    res.status(401).send("unable to get the users");
-  }
-});
-
-app.delete("/delete", async (req, res) => {
-  try {
-    const email = req.body.emailId;
-    const user = await User.findOneAndDelete({ emailId: email });
-    if (!user) {
-      res.status(404).send("user not found");
-    } else {
-      res.status(200).send("user deleted successfully");
-    }
-  } catch (error) {
-    res.status(404).send(error.message);
-  }
-});
-
-app.patch("/user/:id", async (req, res) => {
-  try {
-    const id = req.params?.id;
-    const data = req.body;
-
-    const allowedUpdates = ["password", "imgUrl", "gender", "skills", "about"];
-    const isAllowedUpdates = Object.keys(data).every((k) =>
-      allowedUpdates.includes(k),
-    );
-    if (!isAllowedUpdates)
-      throw new Error("This field is not allowed to update");
-
-    if (data?.skills.length > 10)
-      throw new Error(`Can't add more than 10 skills.`);
-    const updatedUser = await User.findByIdAndUpdate(id, data, {
-      runValidators: true,
-      returnDocument: "after",
-    });
-    res.status(200).send("user upadated successfully.");
-  } catch (error) {
-    res.status(400).send("unable to update the user: " + error.message);
+    res.status(400).send("Error: " + error.message);
   }
 });
 
